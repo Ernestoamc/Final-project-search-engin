@@ -2,12 +2,10 @@ import os
 import string
 
 class SearchEngine:
-
     def __init__(self):
         self.inverted_index = {}
-        self.file_titles = {}
 
-    # Abro un archivo, le quito la puntuación y lo separo. Recibo la ruta del archivo (filepath) y devuelvo una lista de palabras limpias en minúsculas.
+    # Abro un archivo, le quito la puntuación y lo separo. Recibo la ruta del archivo y devuelvo una lista de palabras limpias.
     def get_words_from_file(self, filepath):
         words = []
         try:
@@ -16,19 +14,12 @@ class SearchEngine:
                     line = line.translate(str.maketrans('', '', string.punctuation)).lower()
                     words.extend(line.split())
         except Exception as e:
-            print("Error reading file " + filepath + ": " + str(e))
+            pass
         return words
 
-    # Leo los archivos y armo el índice invertido, Recibo una lista de rutas de archivos (files_list). solo guardo los datos en mis diccionarios.
+    # Leo los archivos y armo el índice invertido. Recibo una lista de rutas de archivos. Guardo los datos en mi diccionario.
     def build_index(self, files_list):
         for filepath in files_list:
-            try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    first_line = f.readline()
-                    self.file_titles[filepath] = first_line.strip()
-            except Exception:
-                self.file_titles[filepath] = "Unknown Title"
-
             words = self.get_words_from_file(filepath)
             for word in words:
                 if word not in self.inverted_index:
@@ -37,7 +28,7 @@ class SearchEngine:
                 if filepath not in self.inverted_index[word]:
                     self.inverted_index[word].append(filepath)
 
-    # Hago la búsqueda en el índice, Recibo el texto a buscar (query) y devuelvo una lista con las rutas de los archivos que contienen todas esas palabras.
+    # Recibo el texto a buscar y devuelvo una lista con las rutas de los archivos que tienen las palabras.
     def search(self, query):
         query_words = query.lower().split()
         
@@ -67,7 +58,43 @@ class SearchEngine:
                 
         return results
 
-# Muestro un menú para elegir qué archivos vamos a leer, devuelvo una lista con las rutas exactas de los archivos de texto que encontré.
+    # Extraigo las frases exactas donde aparecen las palabras, recibo la ruta del archivo y la consulta, devuelvo una lista de frases.
+    def get_snippets(self, filepath, query):
+        query_words = query.lower().split()
+        clean_query = []
+        for p in query_words:
+            if p != "":
+                clean_query.append(p)
+                
+        snippets = []
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+                
+            content = content.replace("?", ".")
+            content = content.replace("!", ".")
+            content = content.replace("\n", " ")
+            
+            sentences = content.split(".")
+            
+            for sentence in sentences:
+                sentence_lower = sentence.lower()
+                    
+                match = True
+                for word in clean_query:
+                    if word not in sentence_lower:
+                        match = False
+                        break
+                
+                if match and sentence.strip() != "":
+                    snippets.append(sentence.strip() + "...")
+                    
+        except Exception:
+            pass
+            
+        return snippets
+
+# Muestro un menú para elegir qué archivos vamos a leer, devuelvo una lista con las rutas exactas de los archivos.
 def get_files_to_index():
     while True:
         print("\n--- SEARCH ENGINE CONFIGURATION ---")
@@ -125,7 +152,7 @@ def get_files_to_index():
             print("Invalid input. Please enter 1, 2, or 3.")
 
 def main():
-    print("Initializing...")
+    print("Initializing Systems...")
     
     target_files = get_files_to_index()
     print("\nInitiating indexing sequence for " + str(len(target_files)) + " file(s)...")
@@ -144,15 +171,19 @@ def main():
             
         results = engine.search(query)
         
-        print("Results for query '" + query + "':")
+        print("\nResults for query '" + query + "':")
         if len(results) == 0:
             print("No results match that query.")
         else:
             results.sort()
             for i in range(len(results)):
                 filepath = results[i]
-                title = engine.file_titles[filepath]
-                print(str(i + 1) + ".  Title: " + title + ",  File: " + filepath)
+                print(str(i + 1) + ". File: " + filepath)
+                
+                snippets = engine.get_snippets(filepath, query)
+                for snippet in snippets:
+                    print("   \"" + snippet + "\"")
+                print("")
 
 if __name__ == '__main__':
     main()
